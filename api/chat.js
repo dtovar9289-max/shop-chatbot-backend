@@ -51,8 +51,8 @@ module.exports = async (req, res) => {
       parts: [{ text: String(message || "") }]
     });
 
-    // CLEANUP AUTOMATION: Base endpoint string
-    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // CLEANUP AUTOMATION: Base endpoint string updated to stable model
+    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent?key=${apiKey}`;
 
     const apiResponse = await fetch(targetUrl, {
       method: 'POST',
