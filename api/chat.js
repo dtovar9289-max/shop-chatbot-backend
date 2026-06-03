@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({ message: "Backend error: Missing GEMINI_API_KEY configuration inside Vercel." });
     }
 
-    const systemInstruction = `
+    const systemInstructionText = `
       You are Sofi, an expert, incredibly warm and professional bilingual (English/Spanish) fashion sales assistant for the brand JDCOLFASHION.
       Always reply naturally in the exact same language the customer uses to text you. If they use English, stay in English. If they use Spanish, stay in Spanish.
       
@@ -51,7 +51,7 @@ module.exports = async (req, res) => {
       parts: [{ text: String(message || "") }]
     });
 
-    // We call the stable v1 production API directly to bypass SDK mapping bugs
+    // Calling the v1 production API directly
     const targetUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const apiResponse = await fetch(targetUrl, {
@@ -59,8 +59,9 @@ module.exports = async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: formattedContents,
-        systemInstruction: {
-          parts: [{ text: systemInstruction }]
+        // FIX: Update to system_instruction structure required by direct endpoints
+        system_instruction: {
+          parts: [{ text: systemInstructionText }]
         },
         generationConfig: {
           temperature: 0.7
