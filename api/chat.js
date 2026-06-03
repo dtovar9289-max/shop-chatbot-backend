@@ -1,5 +1,7 @@
-module.exports = async (req, res) => {
-  // Setup standard CORS headers for Shopify
+import { GoogleGenAI } from '@google/genai';
+
+export default async function handler(req, res) {
+  // 1. Setup standard CORS headers for Shopify
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -20,6 +22,9 @@ module.exports = async (req, res) => {
       return res.status(200).json({ message: "Backend error: Missing GEMINI_API_KEY configuration inside Vercel." });
     }
 
+    // Initialize the official Google Gen AI client
+    const ai = new GoogleGenAI({ apiKey: apiKey });
+
     const systemInstructionText = `
       You are Sofi, an expert, incredibly warm and professional bilingual (English/Spanish) fashion sales assistant for the brand JDCOLFASHION.
       Always reply naturally in the exact same language the customer uses to text you. If they use English, stay in English. If they use Spanish, stay in Spanish.
@@ -29,7 +34,7 @@ module.exports = async (req, res) => {
       2. Premium Selling Focus: Enthusiastically mention brand highlights when relevant, like premium authentic Colombian shaping structures, built-in butt-lifting innovations (jeans levanta cola), or premium medical-grade Colombian shapewear girdles (fajas).
     `;
 
-    // Process and sanitize message history layout safely
+    // Format history structure for the new SDK standard
     const incomingHistory = Array.isArray(history) ? history : [];
     const formattedContents = incomingHistory.map(turn => {
       let cleanRole = (turn.role === 'user') ? 'user' : 'model';
@@ -51,32 +56,17 @@ module.exports = async (req, res) => {
       parts: [{ text: String(message || "") }]
     });
 
-    // CLEANUP AUTOMATION: Base endpoint string updated to stable model
-    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent?key=${apiKey}`;
-
-    const apiResponse = await fetch(targetUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: formattedContents,
-        system_instruction: {
-          parts: [{ text: systemInstructionText }]
-        },
-        generationConfig: {
-          temperature: 0.7
-        }
-      })
+    // Call the API using the standard SDK model format
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: formattedContents,
+      config: {
+        systemInstruction: systemInstructionText,
+        temperature: 0.7,
+      },
     });
 
-    const data = await apiResponse.json();
-
-    if (!apiResponse.ok) {
-      return res.status(200).json({ 
-        message: `Google API Error: ${data.error?.message || apiResponse.statusText}` 
-      });
-    }
-
-    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "I am currently processing your style request.";
+    const replyText = response.text || "I am currently processing your style request.";
     return res.status(200).json({ message: replyText });
 
   } catch (error) {
@@ -85,4 +75,4 @@ module.exports = async (req, res) => {
       message: `System Connection Error details: ${error.message || JSON.stringify(error)}` 
     });
   }
-};
+}
