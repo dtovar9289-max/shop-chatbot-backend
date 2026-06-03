@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({ message: "Backend error: Missing GEMINI_API_KEY configuration inside Vercel." });
     }
 
-    // Initialize the official Google Gen AI client with the correct key
+    // Initialize the official Google Gen AI client
     const ai = new GoogleGenAI({ apiKey: apiKey });
 
     const systemInstructionText = `
@@ -56,9 +56,9 @@ module.exports = async (req, res) => {
       parts: [{ text: String(message || "") }]
     });
 
-    // Call the API using the standard SDK model format
+    // Using gemini-2.5-flash to bypass the 404 version block
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: formattedContents,
       config: {
         systemInstruction: systemInstructionText,
