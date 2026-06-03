@@ -1,6 +1,6 @@
-import { GoogleGenAI } from '@google/genai';
+const { GoogleGenAI } = require('@google/genai');
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   // 1. Setup standard CORS headers for Shopify
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: "Backend error: Missing GEMINI_API_KEY configuration inside Vercel." });
     }
 
-    // Initialize the official Google Gen AI client
+    // Initialize the official Google Gen AI client with the correct key
     const ai = new GoogleGenAI({ apiKey: apiKey });
 
     const systemInstructionText = `
@@ -75,4 +75,4 @@ export default async function handler(req, res) {
       message: `System Connection Error details: ${error.message || JSON.stringify(error)}` 
     });
   }
-}
+};
