@@ -1,6 +1,5 @@
-const { GoogleGenAI } = require('@google/genai');
-
 module.exports = async (req, res) => {
+  // Setup standard CORS headers for Shopify
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -15,59 +14,73 @@ module.exports = async (req, res) => {
 
   try {
     const { message, history } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(200).json({ message: "Backend error: Missing GEMINI_API_KEY." });
+    if (!apiKey) {
+      return res.status(200).json({ message: "Backend error: Missing GEMINI_API_KEY configuration inside Vercel." });
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
     const systemInstruction = `
-      You are Sofi, an expert, warm, and professional bilingual (English/Spanish) fashion sales assistant for JDCOLFASHION.
-      Always reply naturally in the exact same language the customer uses.
+      You are Sofi, an expert, incredibly warm and professional bilingual (English/Spanish) fashion sales assistant for the brand JDCOLFASHION.
+      Always reply naturally in the exact same language the customer uses to text you. If they use English, stay in English. If they use Spanish, stay in Spanish.
+      
+      CORE BEHAVIORS:
+      1. Product/Size Filtering Requests: When a user asks for an inventory size availability, tell them enthusiastically that you can check their fit, and let them know that you are scanning the store's current stock to display your best-selling designs.
+      2. Premium Selling Focus: Enthusiastically mention brand highlights when relevant, like premium authentic Colombian shaping structures, built-in butt-lifting innovations (jeans levanta cola), or premium medical-grade Colombian shapewear girdles (fajas).
     `;
 
-    // Strict sanitation filter to clean up the Shopify history payload format
+    // Process and sanitize message history layout safely
     const incomingHistory = Array.isArray(history) ? history : [];
     const formattedContents = incomingHistory.map(turn => {
-      let cleanRole = 'model';
-      if (turn.role === 'user' || turn.role === 'user') {
-        cleanRole = 'user';
-      }
-      
+      let cleanRole = (turn.role === 'user') ? 'user' : 'model';
       let extractText = "";
       if (turn.parts && turn.parts[0]) {
         extractText = turn.parts[0].text || "";
       } else if (turn.text) {
         extractText = turn.text;
       }
-
       return {
         role: cleanRole,
         parts: [{ text: String(extractText) }]
       };
     });
 
-    // Append current fresh message
+    // Add current user message
     formattedContents.push({
       role: 'user',
       parts: [{ text: String(message || "") }]
     });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: formattedContents,
-      config: {
-        systemInstruction: systemInstruction,
-        temperature: 0.7
-      }
+    // We call the stable v1 production API directly to bypass SDK mapping bugs
+    const targetUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const apiResponse = await fetch(targetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: formattedContents,
+        systemInstruction: {
+          parts: [{ text: systemInstruction }]
+        },
+        generationConfig: {
+          temperature: 0.7
+        }
+      })
     });
 
-    let replyText = response.text || "I'm currently processing your style request.";
+    const data = await apiResponse.json();
+
+    if (!apiResponse.ok) {
+      return res.status(200).json({ 
+        message: `Google API Error: ${data.error?.message || apiResponse.statusText}` 
+      });
+    }
+
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "I am currently processing your style request.";
     return res.status(200).json({ message: replyText });
 
   } catch (error) {
-    console.error("Gemini server error:", error);
+    console.error("Server endpoint compilation error:", error);
     return res.status(200).json({ 
       message: `System Connection Error details: ${error.message || JSON.stringify(error)}` 
     });
