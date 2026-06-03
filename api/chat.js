@@ -1,7 +1,7 @@
 const { GoogleGenAI } = require('@google/genai');
 
 module.exports = async (req, res) => {
-  // Set up standard CORS headers
+  // Clear any CORS roadblocks so Shopify and Vercel talk smoothly
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({ message: "Backend error: Missing GEMINI_API_KEY inside Vercel variables." });
     }
 
-    // Initialize the clean SDK instance
+    // Initialize with a clean API key context
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const systemInstruction = `
@@ -33,22 +33,22 @@ module.exports = async (req, res) => {
       2. Premium Selling Focus: Enthusiastically mention brand highlights when relevant, like premium authentic Colombian shaping structures, built-in butt-lifting innovations (jeans levanta cola), or premium medical-grade Colombian shapewear girdles (fajas).
     `;
 
-    // Process and format message history to match the clean structure
+    // Process chat history safely
     const incomingHistory = Array.isArray(history) ? history : [];
     const formattedContents = incomingHistory.map(turn => ({
       role: turn.role === 'user' ? 'user' : 'model',
       parts: [{ text: turn.parts?.[0]?.text || turn.text || "" }]
     }));
 
-    // Append the current message
+    // Add current user prompt text
     formattedContents.push({
       role: 'user',
       parts: [{ text: message || "" }]
     });
 
-    // Request text from the model
+    // Forced production endpoint configuration
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash', // FIX: Keep it clean without the "models/" prefix
+      model: 'gemini-1.5-flash', 
       contents: formattedContents,
       config: {
         systemInstruction: systemInstruction,
