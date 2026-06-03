@@ -51,7 +51,7 @@ module.exports = async (req, res) => {
       parts: [{ text: String(message || "") }]
     });
 
-    // FIX: Using v1beta endpoint which natively accepts the top-level system_instruction payload layout
+    // FIX: Re-inserted models/ prefix into the direct API path string where the endpoint expects it
     const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const apiResponse = await fetch(targetUrl, {
