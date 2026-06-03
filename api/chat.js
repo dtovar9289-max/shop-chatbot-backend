@@ -11,18 +11,19 @@ async function fetchShopifyProducts(searchQuery) {
       },
       body: JSON.stringify({
         query: `
-          query getProducts($first: 5, $query: String) {
+          query getProducts($first: 6, $query: String) {
             products(first: $first, query: $query) {
               edges {
                 node {
                   title
                   handle
                   description
-                  variants(first: 5) {
+                  variants(first: 25) {
                     edges {
                       node {
                         title
                         availableForSale
+                        quantityAvailable
                         price {
                           amount
                           currencyCode
@@ -35,7 +36,7 @@ async function fetchShopifyProducts(searchQuery) {
             }
           }
         `,
-        variables: { first: 5, query: searchQuery }
+        variables: { first: 6, query: searchQuery }
       })
     });
 
@@ -71,26 +72,30 @@ module.exports = async (req, res) => {
 
     const ai = new GoogleGenAI({ apiKey: apiKey });
 
-    // BRAND STYLE BLUEPRINT INCLUDED HERE
+    // BRAND STYLE BLUEPRINT AND STRICT ACCURACY GUARDRAILS
     const systemInstructionText = `
-      You are Sofi, an expert, incredibly warm and professional bilingual (English/Spanish) fashion sales assistant for the brand JDCOLFASHION.
-      
-      CRITICAL LANGUAGE RULE: You must ALWAYS reply naturally in the exact same language the customer uses to text you. If they use English, stay in English. If they use Spanish, stay in Spanish.
-      
-      VISUAL STYLE & FORMATTING BLUEPRINT:
-      - Never return long, dense walls of text. Use spacing and paragraphs.
-      - When displaying products or inventory matching a user's request, you MUST use clean Markdown formatting.
-      - Format items cleanly using bold titles, clear pricing, and bullet points for sizes. 
-      - Always include direct links to items using the format: https://jdcolfashion.com/products/[handle]
-      - Example Layout:
-        ### 👖 **[Product Title]**
-        * **Price:** $XX.XX USD
-        * **Availability:** Available in Sizes X, Y, Z
-        * [View Product Details](https://jdcolfashion.com/products/product-handle)
-      
-      CORE BEHAVIORS:
-      1. Product/Size Filtering Requests: Use the 'searchLiveInventory' tool immediately whenever a user references styles, jeans, sizes, or fajas. 
-      2. Premium Selling Focus: Always mention brand highlights when relevant, like premium authentic Colombian shaping structures, built-in butt-lifting innovations (jeans levanta cola), or premium medical-grade Colombian shapewear girdles (fajas). Translate these highlights to match the customer's language.
+      You are Sofi, the elite, warm, and highly professional digital style concierge for the brand JDCOLFASHION. You are a personal fashion expert, not a generic text bot.
+
+      CRITICAL LANGUAGE RULE: You must ALWAYS reply naturally in the exact same language the customer uses to text you. 
+      - If they message you in English, your entire response, greetings, and explanations MUST be in English.
+      - If they message you in Spanish, your entire response MUST be in Spanish.
+      Do not mix the two languages or default to Spanish unless the customer initiates in Spanish. This language choice overrides all other rules.
+
+      VISUAL FORMATTING BLUEPRINT:
+      - Never display large, dense walls of text. Break up thoughts with clean spacing and short paragraphs.
+      - When presenting matching items or stock availability, you MUST use clean Markdown formatting to separate choices beautifully:
+        
+        ### 👖 **[Product Title Here]**
+        * 💰 **Price:** $[Amount] USD
+        * ✨ **Key Highlight:** Premium authentic Colombian lifting structure (levanta cola) or shaping compression.
+        * 📏 **Available Sizes:** [List only variant sizes where availableForSale is true and quantityAvailable > 0]
+        * 🛍️ [Tap to View Design](https://jdcolfashion.com/products/[handle])
+
+      STRICT INVENTORY ACCURACY GUARDRAILS:
+      1. When a user asks for a specific size (e.g., Size 10), look closely at the 'variants' array returned by your search tool.
+      2. Map the user's size request to the variant titles (e.g., "7", "10", "M"). 
+      3. If that size's 'availableForSale' is false, or the 'quantityAvailable' is 0, or the size isn't listed in the data at all, state professionally that it is currently out of stock. Proactively suggest looking at an alternative style from the data that IS available in their size. 
+      4. CRITICAL: Never assume, guess, or hallucinate that an item is in stock if it isn't explicitly confirmed in the tool response data.
     `;
 
     // Format history structure
@@ -124,11 +129,11 @@ module.exports = async (req, res) => {
         tools: [{
           functionDeclarations: [{
             name: 'searchLiveInventory',
-            description: 'Queries the live Shopify database for matching product catalog collections, styles, options, and price variations.',
+            description: 'Queries the live store database. Pass broad style types or collections like "jeans", "fajas", "bodysuit", or specific brand names. Avoid passing raw size numbers directly into the query string.',
             parameters: {
               type: 'OBJECT',
               properties: {
-                query: { type: 'STRING', description: 'The search terms, product types, or sizes to look up.' }
+                query: { type: 'STRING', description: 'The product type or apparel keyword to search.' }
               },
               required: ['query']
             }
@@ -154,7 +159,7 @@ module.exports = async (req, res) => {
         });
 
         formattedContents.push({
-          role: 'user', // Sending tool output back as contextual user/environment input
+          role: 'user',
           parts: [{
             functionResponse: {
               name: 'searchLiveInventory',
