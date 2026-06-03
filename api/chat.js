@@ -51,15 +51,14 @@ module.exports = async (req, res) => {
       parts: [{ text: String(message || "") }]
     });
 
-    // Calling the v1 production API directly
-    const targetUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // FIX: Using v1beta endpoint which natively accepts the top-level system_instruction payload layout
+    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const apiResponse = await fetch(targetUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: formattedContents,
-        // FIX: Update to system_instruction structure required by direct endpoints
         system_instruction: {
           parts: [{ text: systemInstructionText }]
         },
